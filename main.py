@@ -4,6 +4,8 @@ import xml.etree.ElementTree
 import zipfile
 from docx import Document
 import pandas as pd
+import time
+
 
 def get_task(tasks):
     alphabet = 'Й Ц У К Е Н Г Ш Щ З Х Ъ Ф Ы В А П Р О Л Д Ж Э Ё Я Ч С М И Т Ь Б Ю' \
@@ -36,7 +38,7 @@ def clear_text(tasks):
     return tasks
 
 
-def sorted_table(tasks, tables, double_tables,currentFile):
+def sorted_table(tasks, tables, double_tables, currentFile):
     task_table = []
     for text_table, text_table_d in zip(tables, double_tables):
         for task in tasks:
@@ -63,18 +65,25 @@ def sorted_table(tasks, tables, double_tables,currentFile):
             for row in range(data.shape[0]):
                 table.cell(row, i).text = str(data[column][row])
         table.style = 'TableGrid'
-        name = table1['task'][:30]+'.docx'
+        name = table1['task'][:30].replace('Отчет', "") + '.docx'
+        print(1)
         try:
-            os.mkdir("./tables/" + currentFile.stem)
-        except:
+            os.mkdir('./tables/' + currentFile.parent.stem.replace('Отчет', ""))
+        except FileExistsError:
             pass
-        document.save('./tables/' + currentFile.stem + '/' + str(ii)+name)
+        try:
+            os.mkdir('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""))
+        except FileExistsError:
+            pass
+
+        document.save('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + str(ii) + name)
         ii += 1
+
 
     """Создаем исполнителей, проект и задачи"""
 
 
-def get_text_in_task(tasks, texts, tables, tables_double,currentFile):
+def get_text_in_task(tasks, texts, tables, tables_double, currentFile):
     ij = 1
     list_tasks_texts = []
     for task in tasks:
@@ -95,68 +104,83 @@ def get_text_in_task(tasks, texts, tables, tables_double,currentFile):
                     TEXT.append(text_task)
 
         list_tasks_texts.append({'text_task': TEXT, 'task': task})
-    sorted_table(list_tasks_texts, tables, tables_double,currentFile)
+    sorted_table(list_tasks_texts, tables, tables_double, currentFile)
 
 
 def main():
-    currentDirectory = pathlib.Path('./files/')
+    user_list = ('Бутакова', 'Винтова', 'Грибанова', 'Чернова')
+    start_time = time.time()
+    for user in user_list:
+        currentDirectory = pathlib.Path(f'./files/{user}/')
 
-    for currentFile in currentDirectory.iterdir():
-        # todo: Добавить создание проекта
+        for currentFile in currentDirectory.iterdir():
+            # todo: Добавить создание проекта
 
-        WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
-        PARA = WORD_NAMESPACE + 'p'
-        TEXT = WORD_NAMESPACE + 't'
-        TABLE = WORD_NAMESPACE + 'tbl'
-        ROW = WORD_NAMESPACE + 'tr'
-        CELL = WORD_NAMESPACE + 'tc'
+            WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+            PARA = WORD_NAMESPACE + 'p'
+            TEXT = WORD_NAMESPACE + 't'
+            TABLE = WORD_NAMESPACE + 'tbl'
+            ROW = WORD_NAMESPACE + 'tr'
+            CELL = WORD_NAMESPACE + 'tc'
 
-        list_task = []
-        with zipfile.ZipFile(currentFile) as docx:
-            tree = xml.etree.ElementTree.XML(docx.read('word/document.xml'))
-
-        """Текст лист"""
-        list_text = []
-        for text in tree.iter(PARA):
-            item = ''.join(node.text for node in text.iter(TEXT))
-            if item == '' or item == ' ' or item.__len__() < 2:
+            list_task = []
+            try:
+                with zipfile.ZipFile(currentFile) as docx:
+                    tree = xml.etree.ElementTree.XML(docx.read('word/document.xml'))
+            except zipfile.BadZipFile:
                 continue
-            else:
-                list_text.append(item)
 
-        for task in list_text:
-            if task == 'Конец оглавления':
-                break
-            else:
-                list_task.append(task)
+            """Текст лист"""
+            list_text = []
+            for text in tree.iter(PARA):
+                item = ''.join(node.text for node in text.iter(TEXT))
+                if item == '' or item == ' ' or item.__len__() < 2:
+                    continue
+                else:
+                    list_text.append(item)
 
-        tasks = get_task(list_task)
-        """Конечный список задач"""
-        tasks = get_task(tasks)
+            for task in list_text:
+                if '1.5.Нормативно-правовая база' in task:
+                    a = list_text.index(task)
+                if 'Настоящий Отчет по результатам анализа принятых регулирующими органами тарифно-балансовых решений за' in task:
+                    b = list_text.index(task)
 
-        texts = list_text[tasks.__len__() + 1:]
+            list_task = list_text[a + 1:b]
 
-        """Получение списка таблиц"""
-        tables = []
-        tables_all_text = []
-        i = 0
-        for table in tree.iter(TABLE):
-            table_text = []
-            text_a = []
-            for row in table.iter(ROW):
-                text = []
-                for cell in row.iter(CELL):
-                    text.append(''.join(node.text for node in cell.iter(TEXT)))
-                    text_a.append(''.join(node.text for node in cell.iter(TEXT)))
-                if text.__len__() > 1:
-                    table_text.append(text)
-            tables_all_text.append(text_a)
-            if table_text.__len__() > 0:
-                i += 1
-                name = 'table' + str(i)
-                tables.append(table_text)
-        """Получение текста для задачи"""
-        get_text_in_task(tasks, texts, tables_all_text, tables,currentFile)
+            tasks = get_task(list_task)
+            """Конечный список задач"""
+            tasks = get_task(tasks)
+            try:
+                c = list_text.index(tasks[0])
+            except ValueError:
+                for task in list_text:
+                    if tasks[0] in task:
+                        c = list_text.index(task)
+                        break
+            texts = list_text[c:]
+
+            """Получение списка таблиц"""
+            tables = []
+            tables_all_text = []
+            i = 0
+            for table in tree.iter(TABLE):
+                table_text = []
+                text_a = []
+                for row in table.iter(ROW):
+                    text = []
+                    for cell in row.iter(CELL):
+                        text.append(''.join(node.text for node in cell.iter(TEXT)))
+                        text_a.append(''.join(node.text for node in cell.iter(TEXT)))
+                    if text.__len__() > 1:
+                        table_text.append(text)
+                tables_all_text.append(text_a)
+                if table_text.__len__() > 0:
+                    i += 1
+                    name = 'table' + str(i)
+                    tables.append(table_text)
+            """Получение текста для задачи"""
+            get_text_in_task(tasks, texts, tables_all_text, tables, currentFile)
+            print(f"--- {(time.time() - start_time)} seconds ---\nUSER:{currentFile.parent.name}\nFILE: {currentFile.name}")
 
 
 if __name__ == '__main__':
