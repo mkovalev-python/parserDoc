@@ -1,7 +1,10 @@
 import os
 import pathlib
+import shutil
 import xml.etree.ElementTree
 import zipfile
+
+import requests
 from docx import Document
 import pandas as pd
 import time
@@ -66,7 +69,6 @@ def sorted_table(tasks, tables, double_tables, currentFile):
                 table.cell(row, i).text = str(data[column][row])
         table.style = 'TableGrid'
         name = table1['task'][:30].replace('Отчет', "") + '.docx'
-        print(1)
         try:
             os.mkdir('./tables/' + currentFile.parent.stem.replace('Отчет', ""))
         except FileExistsError:
@@ -75,12 +77,54 @@ def sorted_table(tasks, tables, double_tables, currentFile):
             os.mkdir('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""))
         except FileExistsError:
             pass
+        dir = './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + str(ii) + name
+        document.save(dir)
+        if os.path.exists(table1['task'][:30] + '.zip'):
+            newzipTable.write(dir)
+            os.remove(dir)
+        else:
+            newzipTable = zipfile.ZipFile(
+                './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + table1[
+                                                                                                                'task'][
+                                                                                                            :30] + '.zip',
+                'w')
+            newzipTable.write(dir)
+            os.remove(dir)
 
-        document.save('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + str(ii) + name)
+            """Из списка в строку с отступами"""
+            TEXT = ''
+            for text in table1['text']:
+                TEXT += f'\n\t{text}'
+
+            file_ob = {'uploaded_file': open(
+                './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + table1[
+                                                                                                                'task'][
+                                                                                                            :30] + '.zip',
+                'rb')}
+            """Создаем исполнителей, проект и задачи"""
+            response = requests.post('http://94.26.245.131/create-projects/',
+                                     files=file_ob,
+                                     data={
+                                         "user": currentFile.parent.stem,
+                                         "task": table1['task'],
+                                         "text": TEXT
+                                     }),
+
         ii += 1
+    try:
+        newzipTable.close()
+    except UnboundLocalError:
+        pass
+    try:
+        newzipProject = zipfile.ZipFile(
+            './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '.zip', 'w')
 
-
-    """Создаем исполнителей, проект и задачи"""
+        newzipProject.write('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""))
+        newzipProject.close()
+        shutil.rmtree('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""),
+                      ignore_errors=True)
+    except FileNotFoundError:
+        pass
 
 
 def get_text_in_task(tasks, texts, tables, tables_double, currentFile):
@@ -180,7 +224,15 @@ def main():
                     tables.append(table_text)
             """Получение текста для задачи"""
             get_text_in_task(tasks, texts, tables_all_text, tables, currentFile)
-            print(f"--- {(time.time() - start_time)} seconds ---\nUSER:{currentFile.parent.name}\nFILE: {currentFile.name}")
+            print(
+                f"--- {(time.time() - start_time)} seconds ---\nUSER:{currentFile.parent.name}\nFILE: {currentFile.name}")
+        newzipUser = zipfile.ZipFile(
+            './tables/' + currentFile.parent.stem + '.zip', 'w')
+
+        newzipUser.write('./tables/' + currentFile.parent.stem)
+        newzipUser.close()
+        shutil.rmtree('./tables/' + currentFile.parent.stem,
+                      ignore_errors=True)
 
 
 if __name__ == '__main__':
