@@ -79,52 +79,27 @@ def sorted_table(tasks, tables, double_tables, currentFile):
             pass
         dir = './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + str(ii) + name
         document.save(dir)
-        if os.path.exists(table1['task'][:30] + '.zip'):
-            newzipTable.write(dir)
-            os.remove(dir)
-        else:
-            newzipTable = zipfile.ZipFile(
-                './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + table1[
-                                                                                                                'task'][
-                                                                                                            :30] + '.zip',
-                'w')
-            newzipTable.write(dir)
-            os.remove(dir)
 
-            """Из списка в строку с отступами"""
-            TEXT = ''
-            for text in table1['text']:
-                TEXT += f'\n\t{text}'
 
-            file_ob = {'uploaded_file': open(
-                './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + table1[
-                                                                                                                'task'][
-                                                                                                            :30] + '.zip',
-                'rb')}
-            """Создаем исполнителей, проект и задачи"""
-            response = requests.post('http://94.26.245.131/create-projects/',
-                                     files=file_ob,
-                                     data={
-                                         "user": currentFile.parent.stem,
-                                         "task": table1['task'],
-                                         "text": TEXT
-                                     }),
+        """Из списка в строку с отступами"""
+        TEXT = ''
+        for text in table1['text']:
+            TEXT += f'\n\t{text}'
+
+        file_ob = {'uploaded_file': open(dir,'rb')}
+        """Создаем исполнителей, проект и задачи"""
+        response = requests.post('http://127.0.0.1:8000/create-task/',
+                                 files=file_ob,
+                                 data={
+                                     "user": currentFile.parent.stem,
+                                     "task": table1['task'],
+                                     "text": TEXT,
+                                     'project': currentFile.stem.replace('Отчет', "")
+                                 })
+        print(1)
 
         ii += 1
-    try:
-        newzipTable.close()
-    except UnboundLocalError:
-        pass
-    try:
-        newzipProject = zipfile.ZipFile(
-            './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '.zip', 'w')
 
-        newzipProject.write('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""))
-        newzipProject.close()
-        shutil.rmtree('./tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', ""),
-                      ignore_errors=True)
-    except FileNotFoundError:
-        pass
 
 
 def get_text_in_task(tasks, texts, tables, tables_double, currentFile):
