@@ -41,6 +41,20 @@ def clear_text(tasks):
     return tasks
 
 
+def send_request(user, task, text, file, project):
+    """Создаем исполнителей, проект и задачи"""
+    response = requests.post('http://127.0.0.1:8000/create-task/',
+                             files=file,
+                             data={
+                                 "user": user,
+                                 "task": task,
+                                 "text": text,
+                                 'project': project
+                             })
+    if response.status_code == 200:
+        print(f'Отправлен файл в задачу {task[:30]}')
+
+
 def sorted_table(tasks, tables, double_tables, currentFile):
     task_table = []
     for text_table, text_table_d in zip(tables, double_tables):
@@ -80,26 +94,16 @@ def sorted_table(tasks, tables, double_tables, currentFile):
         dir = './tables/' + currentFile.parent.stem + '/' + currentFile.stem.replace('Отчет', "") + '/' + str(ii) + name
         document.save(dir)
 
-
         """Из списка в строку с отступами"""
         TEXT = ''
         for text in table1['text']:
             TEXT += f'\n\t{text}'
 
-        file_ob = {'uploaded_file': open(dir,'rb')}
-        """Создаем исполнителей, проект и задачи"""
-        response = requests.post('http://127.0.0.1:8000/create-task/',
-                                 files=file_ob,
-                                 data={
-                                     "user": currentFile.parent.stem,
-                                     "task": table1['task'],
-                                     "text": TEXT,
-                                     'project': currentFile.stem.replace('Отчет', "")
-                                 })
-        print(1)
+        file_ob = {'uploaded_file': open(dir, 'rb')}
+
+        send_request(currentFile.parent.stem, table1['task'], TEXT, file_ob, currentFile.stem.replace('Отчет', ""))
 
         ii += 1
-
 
 
 def get_text_in_task(tasks, texts, tables, tables_double, currentFile):
